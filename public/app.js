@@ -3,6 +3,8 @@
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Works at the domain root AND under a sub-path (e.g. https://host/influencer-orders/)
+const API = location.pathname.replace(/[^/]*$/, '').replace(/\/$/, '') + '/api';
 const safeUrl = (u) => (/^https?:\/\//i.test(u || '') ? u : '#');
 
 // crypto.randomUUID only exists on HTTPS/localhost; this works on plain http too
@@ -14,7 +16,7 @@ function uuid() {
 }
 
 async function api(path, opts = {}) {
-  const r = await fetch('/api' + path, {
+  const r = await fetch(API + path, {
     method: opts.method || 'GET',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'same-origin',

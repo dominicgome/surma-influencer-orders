@@ -28,7 +28,7 @@ function cookies(req) {
   return Object.fromEntries((req.headers.cookie || '').split(';').map((c) => c.trim().split('=')).filter((p) => p[0]).map(([k, ...v]) => [k, v.join('=')]));
 }
 function authed(req) {
-  const [exp, mac] = String(cookies(req).sid || '').split('.');
+  const [exp, mac] = String(cookies(req).infl_sid || '').split('.');
   if (!exp || !mac || Number(exp) < Date.now()) return false;
   const good = sign(exp);
   return mac.length === good.length && crypto.timingSafeEqual(Buffer.from(mac), Buffer.from(good));
@@ -43,10 +43,10 @@ app.post('/api/login', (req, res) => {
   const ok = crypto.timingSafeEqual(sha(req.body.password || ''), sha(cfg.portal.password));
   if (!ok) { recent.push(Date.now()); attempts.set(ip, recent); return res.status(401).json({ error: 'Wrong password' }); }
   const exp = String(Date.now() + SESSION_MS);
-  res.cookie('sid', `${exp}.${sign(exp)}`, { httpOnly: true, sameSite: 'strict', secure: cfg.portal.cookieSecure, maxAge: SESSION_MS });
+  res.cookie('infl_sid', `${exp}.${sign(exp)}`, { httpOnly: true, sameSite: 'strict', secure: cfg.portal.cookieSecure, maxAge: SESSION_MS, path: cfg.portal.cookiePath });
   res.json({ ok: true });
 });
-app.post('/api/logout', (req, res) => { res.clearCookie('sid'); res.json({ ok: true }); });
+app.post('/api/logout', (req, res) => { res.clearCookie('infl_sid', { path: cfg.portal.cookiePath }); res.json({ ok: true }); });
 app.get('/api/me', (req, res) => res.json({ authed: authed(req) }));
 app.get('/api/health', async (req, res) => {
   try { await pool.query('SELECT 1'); res.json({ ok: true }); } catch (e) { res.status(500).json({ ok: false }); }

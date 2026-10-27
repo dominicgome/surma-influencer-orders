@@ -29,6 +29,7 @@ const cfg = {
     password: process.env.PORTAL_PASSWORD || '',
     secret: process.env.SESSION_SECRET || '',
     cookieSecure: bool(process.env.COOKIE_SECURE),
+    cookiePath: process.env.COOKIE_PATH || '/', // e.g. /influencer-orders when served under a sub-path
   },
   rules: {
     maxItems: num(process.env.MAX_ITEMS_PER_ORDER, 6),
