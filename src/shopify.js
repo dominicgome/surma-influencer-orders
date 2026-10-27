@@ -200,13 +200,26 @@ async function getOrderTracking(orderGid) {
   const d = await gql(
     `query($id: ID!) {
       order(id: $id) {
-        id name cancelledAt displayFulfillmentStatus
+        id name tags cancelledAt displayFulfillmentStatus
         fulfillments(first: 10) { status displayStatus deliveredAt trackingInfo { company number url } }
       }
     }`, { id: orderGid });
   return d.order;
 }
 
+async function cancelOrder(orderGid, staffNote) {
+  const d = await gql(
+    `mutation($id: ID!, $restock: Boolean!, $note: String) {
+      orderCancel(orderId: $id, reason: OTHER, restock: $restock, notifyCustomer: false, staffNote: $note) {
+        job { id done }
+        orderCancelUserErrors { field message code }
+      }
+    }`, { id: orderGid, restock: cfg.rules.cancelRestock, note: String(staffNote || '').slice(0, 250) });
+  const r = d.orderCancel;
+  if (r.orderCancelUserErrors.length) throw new Error('Shopify refused the cancellation: ' + userErr(r.orderCancelUserErrors));
+  return r.job;
+}
+
 module.exports = {
-  gql, parseProductUrl, normSize, checkItems, createDraft, getDraft, deleteDraft, completeDraft, getOrderTracking, getToken,
+  cancelOrder, gql, parseProductUrl, normSize, checkItems, createDraft, getDraft, deleteDraft, completeDraft, getOrderTracking, getToken,
 };

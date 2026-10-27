@@ -24,9 +24,9 @@ async function syncOne(row) {
   const s = summarise(order);
   const r = await pool.query(
     `UPDATE influencer_orders SET delivery_status=$2, tracking=$3::jsonb, delivered_at=$4,
-       status = CASE WHEN $5 THEN 'CANCELLED' ELSE status END, last_synced_at=now(), updated_at=now()
+       status = CASE WHEN $5 THEN 'CANCELLED' ELSE status END, shopify_tags=$6::jsonb, last_synced_at=now(), updated_at=now()
      WHERE id=$1 RETURNING *`,
-    [row.id, s.delivery, JSON.stringify(s.tracking), s.deliveredAt, !!s.cancelled]);
+    [row.id, s.delivery, JSON.stringify(s.tracking), s.deliveredAt, !!s.cancelled, JSON.stringify(order.tags || [])]);
   return r.rows[0];
 }
 

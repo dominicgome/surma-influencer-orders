@@ -327,11 +327,21 @@ async function loadHistory() {
     <td>${h.status === 'CREATED' || h.status === 'CANCELLED' ? statusPill(h.deliveryStatus) : ''}${h.deliveredAt ? `<div class="muted">${esc(fmtDate(h.deliveredAt))}</div>` : ''}</td>
     <td>${h.status === 'CREATED' ? trackingHtml(h.tracking) : ''}</td>
     <td class="muted">${esc(fmtDate(h.lastSyncedAt))}</td>
-    <td>${h.status === 'CREATED' ? `<button class="btn" data-refresh="${h.id}">Refresh</button>` : ''}</td>
+    <td>${h.status === 'CREATED' ? `<button class="btn" data-refresh="${h.id}">Refresh</button> <button class="btn" data-cancel="${h.id}" data-name="${esc(h.orderName)}" title="Allowed only when the order has the tag ON_HOLD_ORDER_CP in Shopify">Cancel order</button>` : ''}${h.onHold && h.status === 'CREATED' ? '<div><span class="pill warn">On hold (can cancel)</span></div>' : ''}</td>
   </tr>`).join('') || '<tr><td colspan="10" class="muted" style="padding:16px">No orders yet.</td></tr>';
 }
 $('#histBody').addEventListener('click', async (e) => {
-  const id = e.target.dataset && e.target.dataset.refresh;
+  const d = e.target.dataset || {};
+  if (d.cancel) {
+    if (!confirm(`Cancel order ${d.name} on Shopify?\n\nThis only works if the order has the tag ON_HOLD_ORDER_CP in Shopify. It cannot be undone.`)) return;
+    e.target.disabled = true; e.target.textContent = 'Cancelling…';
+    try {
+      const r = await api(`/orders/${d.cancel}/cancel`, { method: 'POST' });
+      if (r.cancelRequested) alert('Cancellation was sent to Shopify and is still processing. Click Refresh in a minute to see the final status.');
+    } catch (err) { alert(err.message); }
+    await loadHistory(); return;
+  }
+  const id = d.refresh;
   if (!id) return;
   e.target.disabled = true;
   try { await api(`/orders/${id}/refresh`, { method: 'POST' }); await loadHistory(); } catch (err) { alert(err.message); e.target.disabled = false; }

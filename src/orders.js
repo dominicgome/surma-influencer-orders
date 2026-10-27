@@ -3,6 +3,10 @@ const { pool } = require('./db');
 const { cfg } = require('./config');
 const shopify = require('./shopify');
 const { validateOrder } = require('./validate');
+const { syncOne } = require('./trackingSync');
+
+const hasTag = (tags, wanted) => (tags || []).some((t) => String(t).trim().toLowerCase() === wanted.toLowerCase());
+const POLL_MS = Number(process.env.CANCEL_POLL_MS) || 1000;
 
 class HttpError extends Error {
   constructor(status, message, extra = {}) { super(message); this.status = status; this.extra = extra; }
@@ -26,6 +30,8 @@ function publicRow(r) {
     tracking: r.tracking || [],
     deliveredAt: r.delivered_at,
     lastSyncedAt: r.last_synced_at,
+    onHold: hasTag(r.shopify_tags, cfg.rules.cancelTag),
+    cancelledAt: r.cancelled_at,
     createdAt: r.created_at,
   };
 }
@@ -122,9 +128,53 @@ async function createOrder(body, user = 'portal') {
   }
 }
 
+/**
+ * Cancel an influencer order on Shopify - ONLY if Shopify currently shows the required tag
+ * (default ON_HOLD_ORDER_CP). The tag is checked live at click time, never from cached data.
+ */
+async function cancelOrder(id, user = 'portal') {
+  const row = (await pool.query('SELECT * FROM influencer_orders WHERE id=$1', [id])).rows[0];
+  if (!row || !row.shopify_order_id) throw new HttpError(404, 'Order not found');
+  if (row.status === 'CANCELLED') throw new HttpError(409, `${row.shopify_order_name} is already cancelled.`);
+  if (row.status !== 'CREATED') throw new HttpError(409, 'Only created orders can be cancelled.');
+
+  const need = cfg.rules.cancelTag;
+  const live = await shopify.getOrderTracking(row.shopify_order_id);
+  if (!live) throw new HttpError(404, 'Order not found on Shopify');
+  if (live.cancelledAt) { // cancelled directly in Shopify meanwhile: just sync our record
+    const synced = await syncOne(row);
+    return publicRow(synced);
+  }
+  if (!hasTag(live.tags, need)) {
+    await pool.query(`UPDATE influencer_orders SET shopify_tags=$2::jsonb, updated_at=now() WHERE id=$1`, [row.id, JSON.stringify(live.tags || [])]);
+    throw new HttpError(409, `${row.shopify_order_name} cannot be cancelled: it does not have the tag "${need}" in Shopify. Cancellation is only allowed for orders tagged "${need}".`);
+  }
+  if ((live.fulfillments || []).length) {
+    throw new HttpError(409, `${row.shopify_order_name} has already been fulfilled/shipped, so it cannot be cancelled here.`);
+  }
+
+  try {
+    await shopify.cancelOrder(row.shopify_order_id, `Cancelled via Influencer Orders portal by ${user} (tag ${need})`);
+  } catch (e) { throw new HttpError(502, e.message); }
+
+  // Shopify cancels asynchronously: wait briefly for confirmation
+  for (let i = 0; i < 8; i++) {
+    await new Promise((r) => setTimeout(r, POLL_MS));
+    const o = await shopify.getOrderTracking(row.shopify_order_id);
+    if (o && o.cancelledAt) {
+      await syncOne(row);
+      const done = await pool.query(`UPDATE influencer_orders SET cancelled_at=now(), cancelled_by=$2 WHERE id=$1 RETURNING *`, [row.id, user]);
+      return publicRow(done.rows[0]);
+    }
+  }
+  // requested but not confirmed yet: the 30-minute sync (or Refresh) will mark it cancelled
+  const pend = await pool.query(`UPDATE influencer_orders SET cancelled_by=$2, updated_at=now() WHERE id=$1 RETURNING *`, [row.id, user]);
+  return { ...publicRow(pend.rows[0]), cancelRequested: true };
+}
+
 async function list(limit = 200) {
   const r = await pool.query('SELECT * FROM influencer_orders ORDER BY created_at DESC LIMIT $1', [limit]);
   return r.rows.map(publicRow);
 }
 
-module.exports = { createOrder, check, list, publicRow, HttpError };
+module.exports = { createOrder, cancelOrder, check, list, publicRow, HttpError };

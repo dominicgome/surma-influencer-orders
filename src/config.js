@@ -38,6 +38,9 @@ const cfg = {
     orderTag: (process.env.ORDER_TAG || '').trim(),   // blank = no tag (default)
     orderNote: (process.env.ORDER_NOTE || '').trim(), // blank = no note (default)
     syncMinutes: num(process.env.TRACKING_SYNC_MINUTES, 30),
+    // An order may only be cancelled from the portal while Shopify shows this tag on it
+    cancelTag: (process.env.CANCEL_REQUIRED_TAG || 'ON_HOLD_ORDER_CP').trim(),
+    cancelRestock: bool(process.env.CANCEL_RESTOCK), // default false: Unicommerce owns stock
   },
 };
 

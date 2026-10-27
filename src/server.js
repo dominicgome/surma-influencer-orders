@@ -70,12 +70,16 @@ app.post('/api/orders/:id/refresh', requireAuth, wrap(async (req) => {
   if (!r.rows[0] || !r.rows[0].shopify_order_id) throw new orders.HttpError(404, 'Order not found');
   return orders.publicRow(await syncOne(r.rows[0]));
 }));
+app.post('/api/orders/:id/cancel', requireAuth, wrap((req) => orders.cancelOrder(Number(req.params.id) || 0, 'portal')));
 app.post('/api/sync', requireAuth, wrap(() => syncAll()));
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // ------------------------------------------------------------- boot
-app.listen(cfg.portal.port, () => console.log(`[portal] listening on :${cfg.portal.port}`));
+// make sure the table/columns exist (idempotent), then start listening
+require('./db').pool.query(require('fs').readFileSync(path.join(__dirname, '..', 'sql', 'schema.sql'), 'utf8'))
+  .catch((e) => console.error('[schema] could not apply schema:', e.message))
+  .finally(() => app.listen(cfg.portal.port, () => console.log(`[portal] listening on :${cfg.portal.port}`)));
 setInterval(() => syncAll().catch((e) => console.error('[sync]', e.message)), cfg.rules.syncMinutes * 60 * 1000);
 setTimeout(() => syncAll().catch((e) => console.error('[sync]', e.message)), 30 * 1000); // first run shortly after boot
 process.on('unhandledRejection', (e) => console.error('[unhandled]', e));

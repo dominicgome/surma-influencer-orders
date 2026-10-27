@@ -27,3 +27,8 @@ CREATE TABLE IF NOT EXISTS influencer_orders (
 );
 CREATE INDEX IF NOT EXISTS idx_influencer_orders_status  ON influencer_orders (status, delivery_status);
 CREATE INDEX IF NOT EXISTS idx_influencer_orders_created ON influencer_orders (created_at DESC);
+
+-- v2: cancellation support (idempotent; the server also runs this file at startup)
+ALTER TABLE influencer_orders ADD COLUMN IF NOT EXISTS shopify_tags JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE influencer_orders ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
+ALTER TABLE influencer_orders ADD COLUMN IF NOT EXISTS cancelled_by TEXT;
