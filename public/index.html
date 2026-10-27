@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Surma Influencer Orders</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="login" class="login hidden">
+  <form id="loginForm" class="card">
+    <h1>Surma Influencer Orders</h1>
+    <p class="muted">Internal portal. Enter the team password.</p>
+    <input id="pw" type="password" placeholder="Password" autocomplete="current-password" required>
+    <button class="btn primary" type="submit">Sign in</button>
+    <p id="loginErr" class="err"></p>
+  </form>
+</div>
+
+<div id="app" class="hidden">
+  <header>
+    <div>
+      <h1>Influencer Orders</h1>
+      <span class="muted">100% discount &middot; tagged <b>INFLUENCER</b> &middot; created live on Shopify</span>
+    </div>
+    <nav>
+      <button class="tab active" data-tab="new">New orders</button>
+      <button class="tab" data-tab="history">Order history &amp; tracking</button>
+      <button class="btn ghost" id="logout">Sign out</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="tab-new">
+      <p class="hint">
+        One row = one order. Paste product links <b>comma separated</b> and the matching sizes in the same order
+        (e.g. links <code>…/products/a, …/products/b</code> &rarr; sizes <code>M, L</code>). Add <code>*2</code> for quantity 2 (e.g. <code>M*2</code>).
+        Click <b>Check availability</b>; <b>Create order</b> unlocks only when every item is in stock.
+      </p>
+      <div class="gridwrap">
+        <table id="grid">
+          <thead>
+            <tr>
+              <th>Name</th><th>Address</th><th>City</th><th>State</th><th>Pin code</th><th>Phone Number</th><th>Email ID</th>
+              <th>Products (comma separated)</th><th>Size</th><th>Availability</th><th>Create</th>
+              <th>Order Date</th><th>Order Number</th><th>Tracking link</th>
+            </tr>
+          </thead>
+          <tbody id="gridBody"></tbody>
+        </table>
+      </div>
+      <button class="btn" id="addRow">+ Add row</button>
+      <datalist id="stateList"></datalist>
+    </section>
+
+    <section id="tab-history" class="hidden">
+      <div class="bar">
+        <button class="btn" id="syncAll">Sync tracking now</button>
+        <span class="muted" id="syncMsg">Tracking auto-syncs from Shopify every 30 minutes.</span>
+      </div>
+      <div class="gridwrap">
+        <table id="hist">
+          <thead>
+            <tr><th>Order</th><th>Date</th><th>Customer</th><th>City</th><th>Items</th><th>Order status</th><th>Delivery status</th><th>Tracking</th><th>Last synced</th><th></th></tr>
+          </thead>
+          <tbody id="histBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+:root {
+  --bg: #f6f6f4; --card: #fff; --ink: #1d1d1b; --muted: #6b6b66; --line: #dcdcd6;
+  --brand: #7a1f3d; --brand-ink: #fff; --ok: #1b7f3b; --ok-bg: #e6f4ea; --bad: #b3261e; --bad-bg: #fce8e6; --warn-bg: #fff4d6;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #151514; --card: #1f1f1d; --ink: #ecece8; --muted: #9a9a93; --line: #3a3a36; --brand: #d0728f; --brand-ink: #1a0b11;
+    --ok: #6fd08a; --ok-bg: #16301e; --bad: #f2877f; --bad-bg: #3a1a18; --warn-bg: #3a3112; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.hidden { display: none !important; }
+h1 { font-size: 20px; margin: 0; }
+.muted { color: var(--muted); font-size: 13px; }
+code { background: var(--line); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+
+header { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; padding: 14px 20px; background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+main { padding: 16px 20px 60px; }
+.hint { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; margin: 0 0 12px; max-width: 980px; }
+.bar { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+
+.btn { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--ink); padding: 7px 12px; border-radius: 6px; cursor: pointer; }
+.btn:hover:not(:disabled) { border-color: var(--brand); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.primary { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); font-weight: 600; }
+.btn.ghost { background: transparent; }
+.tab { font: inherit; border: 0; background: transparent; padding: 7px 12px; border-radius: 6px; cursor: pointer; color: var(--muted); }
+.tab.active { background: var(--brand); color: var(--brand-ink); }
+
+.gridwrap { overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 12px; }
+table { border-collapse: collapse; width: 100%; }
+th { text-align: left; font-size: 12px; padding: 8px; background: var(--bg); border-bottom: 1px solid var(--line); white-space: nowrap; position: sticky; top: 0; }
+td { padding: 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+#grid td input, #grid td select { width: 100%; font: inherit; padding: 6px; border: 1px solid transparent; background: transparent; color: var(--ink); border-radius: 4px; }
+#grid td input:hover { border-color: var(--line); }
+#grid td input:focus { outline: 2px solid var(--brand); background: var(--card); }
+#grid td input:disabled { color: var(--muted); }
+#grid td input.bad { border-color: var(--bad); }
+#grid td.c-name { min-width: 130px; } #grid td.c-address { min-width: 200px; } #grid td.c-city { min-width: 100px; }
+#grid td.c-state { min-width: 130px; } #grid td.c-pincode { min-width: 80px; } #grid td.c-phone { min-width: 120px; }
+#grid td.c-email { min-width: 170px; } #grid td.c-products { min-width: 280px; } #grid td.c-sizes { min-width: 90px; }
+td.act { white-space: nowrap; padding: 6px; }
+td.out { min-width: 110px; padding: 8px; font-size: 13px; }
+tr.detail td { background: var(--bg); padding: 8px 12px; border-bottom: 2px solid var(--line); }
+
+.item { display: flex; gap: 8px; align-items: baseline; margin: 2px 0; }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.pill.ok { background: var(--ok-bg); color: var(--ok); }
+.pill.bad { background: var(--bad-bg); color: var(--bad); }
+.pill.neutral { background: var(--line); color: var(--ink); }
+.pill.warn { background: var(--warn-bg); color: var(--ink); }
+.err { color: var(--bad); margin: 6px 0 0; }
+a { color: var(--brand); }
+
+.login { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 24px; width: min(360px, 100%); display: grid; gap: 12px; }
+.card input { font: inherit; padding: 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
