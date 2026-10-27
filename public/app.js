@@ -47,6 +47,7 @@ function showLogin() { $('#app').classList.add('hidden'); $('#login').classList.
 async function showApp() {
   $('#login').classList.add('hidden'); $('#app').classList.remove('hidden');
   const states = await api('/states');
+  statesList = states;
   $('#stateList').innerHTML = states.map((s) => `<option value="${esc(s)}">`).join('');
   if (!rows.length) addRow();
   loadHistory();
@@ -72,9 +73,12 @@ const FIELDS = [
 ];
 const REQUIRED = ['name', 'address', 'city', 'state', 'pincode', 'phone', 'email', 'products'];
 const rows = [];
+let statesList = [];
+const LABELS = { name: 'Name', address: 'Address', city: 'City', state: 'State', pincode: 'Pin code', phone: 'Phone', email: 'Email', products: 'Products' };
+const STATE_ALIASES = ['new delhi', 'nct of delhi', 'orissa', 'uttaranchal', 'pondicherry'];
 
-function addRow() {
-  const r = { key: uuid(), f: {}, check: null, snapshot: '', busy: false, order: null, failed: false, els: {} };
+function addRow(init) {
+  const r = { key: uuid(), f: {}, check: null, snapshot: '', busy: false, order: null, failed: false, els: {}, imported: !!init, tr: null, dtr: null };
   rows.push(r);
 
   const tr = document.createElement('tr');
@@ -110,12 +114,37 @@ function addRow() {
   r.els.detail = dtd; r.els.detailRow = dtr;
 
   $('#gridBody').append(tr, dtr);
+  r.tr = tr; r.dtr = dtr;
+  if (init) for (const [name] of FIELDS) { const v = String(init[name] ?? '').trim(); r.f[name] = v; r.els[name].value = v; }
   paint(r);
   return r;
 }
 
+function removeRow(r) { r.tr.remove(); r.dtr.remove(); rows.splice(rows.indexOf(r), 1); }
+
+function stateOk(v) {
+  const x = String(v).trim().toLowerCase();
+  return statesList.some((s) => s.toLowerCase() === x) || STATE_ALIASES.includes(x) || /^[a-z]{2}$/.test(x);
+}
+
+// quick client-side checks (the server re-validates everything before creating)
+function issues(r) {
+  const out = []; const v = (k) => String(r.f[k] || '').trim();
+  for (const k of REQUIRED) if (!v(k)) out.push(LABELS[k] + ' missing');
+  if (v('phone')) {
+    let d = v('phone').replace(/\D/g, '');
+    if (d.length === 12 && d.startsWith('91')) d = d.slice(2);
+    if (d.length === 11 && d[0] === '0') d = d.slice(1);
+    if (!/^[6-9]\d{9}$/.test(d)) out.push('Phone must be a 10-digit Indian mobile');
+  }
+  if (v('pincode') && !/^[1-9]\d{5}$/.test(v('pincode').replace(/\D/g, ''))) out.push('Pin code must be 6 digits');
+  if (v('email') && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v('email'))) out.push('Email looks invalid');
+  if (v('state') && statesList.length && !stateOk(v('state'))) out.push('State not recognised');
+  return out;
+}
+
 function snapshotOf(r) { return `${r.f.products || ''}|${r.f.sizes || ''}`; }
-function complete(r) { return REQUIRED.every((k) => String(r.f[k] || '').trim()); }
+function complete(r) { return issues(r).length === 0; }
 
 function paint(r) {
   const locked = !!r.order;
@@ -125,11 +154,13 @@ function paint(r) {
   r.els.checkBtn.textContent = r.busy === 'check' ? 'Checking…' : 'Check availability';
   r.els.createBtn.disabled = locked || r.busy || !(fresh && complete(r));
   r.els.createBtn.textContent = r.busy === 'create' ? 'Creating…' : locked ? 'Created ✓' : 'Create order';
-  r.els.createBtn.title = fresh ? (complete(r) ? '' : 'Fill all customer fields first') : 'Run "Check availability" first (all items must be in stock)';
+  r.els.createBtn.title = !fresh ? 'Run "Check availability" first (all items must be in stock)' : complete(r) ? '' : issues(r).join('; ');
 
   // detail line
   let html = '';
   if (r.error) html += `<div class="err">${esc(r.error)}</div>`;
+  const iss = (r.imported || r.check) && !r.order ? issues(r) : [];
+  if (iss.length) html += '<div>' + iss.map((i) => `<span class="pill warn">${esc(i)}</span>`).join(' ') + '</div>';
   if (r.check && r.check.items) {
     const stale = r.snapshot !== snapshotOf(r);
     html += (stale ? '<div class="muted">Products/sizes changed - re-run the check.</div>' : '') +
@@ -171,6 +202,110 @@ async function doCreate(r) {
 }
 
 $('#addRow').addEventListener('click', addRow);
+
+// ------------------------------------------------------------------ Excel / CSV import
+// Header detection is tolerant: "Phone Number", "Mobile", "Pin code", "Products (Coma seperated)" etc. all map.
+const IGNORE_HEADER = /order|track|date|awb|button|availab|status/i;
+const HEADER_RULES = [
+  ['products', /product|link|url/i], ['sizes', /size/i], ['pincode', /pin|zip|postal/i],
+  ['phone', /phone|mobile|contact|whatsapp/i], ['email', /mail/i], ['city', /city|town/i],
+  ['state', /state/i], ['address', /addr/i], ['name', /name/i],
+];
+function mapHeaders(headerRow) {
+  const map = {}; const used = new Set();
+  headerRow.forEach((h, idx) => {
+    const t = String(h || '').trim(); if (!t || IGNORE_HEADER.test(t)) return;
+    for (const [field, rx] of HEADER_RULES) if (!used.has(field) && rx.test(t)) { map[field] = idx; used.add(field); break; }
+  });
+  return map;
+}
+const MAX_IMPORT_ROWS = 100;
+
+function parseSheetRows(wb) {
+  for (const sheetName of wb.SheetNames) {
+    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, raw: false, defval: '', blankrows: false });
+    for (let i = 0; i < Math.min(aoa.length, 15); i++) {
+      const map = mapHeaders(aoa[i]);
+      if (Object.keys(map).length >= 4 && map.products !== undefined) return { aoa: aoa.slice(i + 1), map, sheetName };
+    }
+  }
+  return null;
+}
+
+async function importFile(file) {
+  const msg = $('#uploadMsg'); msg.textContent = 'Reading file…';
+  try {
+    const isCsv = /\.csv$/i.test(file.name);
+    const wb = isCsv ? XLSX.read(await file.text(), { type: 'string' }) : XLSX.read(await file.arrayBuffer(), { type: 'array' });
+    const parsed = parseSheetRows(wb);
+    if (!parsed) { msg.innerHTML = '<span class="err">Could not find the column headings. Use "Download template" and keep its headings (Name, Address, City, State, Pin code, Phone Number, Email ID, Products, Size).</span>'; return; }
+    const { aoa, map } = parsed;
+    const missing = ['name', 'address', 'city', 'state', 'pincode', 'phone', 'email', 'products'].filter((k) => map[k] === undefined);
+    if (missing.length) { msg.innerHTML = `<span class="err">Missing column(s): ${esc(missing.map((k) => LABELS[k]).join(', '))}.</span>`; return; }
+
+    const list = [];
+    let skipped = 0;
+    for (const line of aoa) {
+      const get = (k) => (map[k] === undefined ? '' : String(line[map[k]] ?? '').trim());
+      const rec = {
+        name: get('name'), address: get('address'), city: get('city'), state: get('state'), pincode: get('pincode'),
+        phone: get('phone'), email: get('email'),
+        products: get('products').replace(/[\r\n;|]+/g, ',').replace(/\s*,\s*/g, ', ').replace(/^,\s*|,\s*$/g, ''),
+        sizes: get('sizes').replace(/[\r\n;|]+/g, ',').replace(/\s*,\s*/g, ', ').replace(/^,\s*|,\s*$/g, ''),
+      };
+      if (!Object.values(rec).some(Boolean)) { skipped++; continue; }
+      const st = statesList.find((s) => s.toLowerCase() === rec.state.toLowerCase()); if (st) rec.state = st;
+      list.push(rec);
+    }
+    if (!list.length) { msg.innerHTML = '<span class="err">No data rows found under the headings.</span>'; return; }
+    if (list.length > MAX_IMPORT_ROWS) { msg.innerHTML = `<span class="err">${list.length} rows found; max ${MAX_IMPORT_ROWS} per upload. Split the file.</span>`; return; }
+
+    // drop the untouched blank starter row
+    for (const r of [...rows]) if (!r.order && !Object.values(r.f).some((v) => String(v || '').trim())) removeRow(r);
+    for (const rec of list) addRow(rec);
+    const bad = rows.filter((r) => r.imported && !r.order && issues(r).length).length;
+    msg.textContent = `Loaded ${list.length} row(s) from ${file.name}${skipped ? ` (${skipped} empty skipped)` : ''}${bad ? ` - ${bad} row(s) need fixing (see yellow tags)` : ''}. Nothing has been created yet: click "Check availability for all rows", review, then "Create order" per row.`;
+  } catch (e) {
+    msg.innerHTML = `<span class="err">Could not read the file: ${esc(e.message)}</span>`;
+  }
+}
+$('#xlsFile').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) importFile(f); });
+
+$('#tplBtn').addEventListener('click', () => {
+  const head = ['Name', 'Address', 'City', 'State', 'Pin code', 'Phone Number', 'Email ID', 'Products (comma separated links)', 'Size (comma separated, same order)'];
+  const ex = ['Example Name', '12 MG Road, Indiranagar', 'Bengaluru', 'Karnataka', '560038', '9876543210', 'name@example.com',
+    'https://YOUR-STORE/products/handle-one, https://YOUR-STORE/products/handle-two', 'M, L'];
+  const help = [['How to fill'], ['One row = one order. Delete the example row before uploading.'],
+    ['Products: product page links separated by commas (or one per line inside the cell).'],
+    ['Size: sizes in the same order as the products, e.g. M, L. Add *2 for quantity 2 (M*2).'],
+    ['Phone: 10-digit Indian mobile. Pin code: 6 digits. State: full state name.'],
+    ['Uploading only fills the portal grid. Orders are created one by one with the Create order button.']];
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([head, ex]);
+  ws['!cols'] = [18, 34, 14, 16, 10, 14, 24, 60, 22].map((wch) => ({ wch }));
+  XLSX.utils.book_append_sheet(wb, ws, 'Orders');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(help), 'How to fill');
+  XLSX.writeFile(wb, 'influencer-orders-template.xlsx');
+});
+
+$('#checkAll').addEventListener('click', async () => {
+  const todo = rows.filter((r) => !r.order && String(r.f.products || '').trim() && !(r.check && r.snapshot === snapshotOf(r)));
+  if (!todo.length) { $('#uploadMsg').textContent = 'Nothing to check.'; return; }
+  $('#checkAll').disabled = true;
+  let i = 0;
+  for (const r of todo) { $('#uploadMsg').textContent = `Checking row ${++i} of ${todo.length}…`; await doCheck(r); }
+  $('#checkAll').disabled = false;
+  const ready = rows.filter((r) => !r.order && r.check && r.check.ok && r.snapshot === snapshotOf(r) && complete(r)).length;
+  $('#uploadMsg').textContent = `Checked ${todo.length} row(s): ${ready} ready to create. Review, then click "Create order" on each row.`;
+});
+
+$('#clearRows').addEventListener('click', () => {
+  const pending = rows.filter((r) => !r.order);
+  if (!pending.length) return;
+  if (!confirm(`Remove ${pending.length} row(s) that have not been created? Created orders stay in Order history.`)) return;
+  pending.forEach(removeRow); if (!rows.length) addRow();
+  $('#uploadMsg').textContent = '';
+});
 
 // ------------------------------------------------------------------ history + live tracking
 let history = [];

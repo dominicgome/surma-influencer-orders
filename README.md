@@ -12,6 +12,13 @@ Internal portal to create **100% discounted "INFLUENCER" orders** on Shopify (li
    - `draftOrderComplete` -> real order (e.g. `#12345`) appears in Shopify and flows to Unicommerce through your existing Shopify integration
 4. Order No., Order Date and tracking links appear in the same row and in the **Order history** tab. A background job (every 30 min, set `TRACKING_SYNC_MINUTES`) reads Shopify fulfilments and updates **delivery status** until `Delivered`.
 
+### Excel / CSV upload
+- **Upload Excel / CSV** fills the grid from a file (.xlsx, .xls or .csv, max 100 rows). **Download template** gives the exact headings: Name, Address, City, State, Pin code, Phone Number, Email ID, Products (comma separated links), Size.
+- Headings are matched loosely (e.g. "Mobile", "Pin", "Products (Coma seperated)"), and unrelated columns such as Order Date / Order Number / Tracking link are ignored, so your existing sheet layout can be uploaded as is.
+- Multiple products in one cell can be comma-separated or on separate lines; sizes go in the same order (`M, L`, or `M*2` for quantity 2).
+- **Uploading never creates orders.** It only fills rows. Problems (bad phone, 6-digit pin code, email, unknown state) show as yellow tags and block that row's Create button. Use **Check availability for all rows**, review, then click **Create order** on each row.
+- The Excel reader (SheetJS 0.20.3, Apache-2.0) is bundled in `public/vendor/`, so nothing is loaded from the internet and the file is read in the browser only.
+
 Safety built in: shared-password login (signed cookie), idempotency key per row (double-click/retry can never create 2 orders), resume of half-created drafts, max items/qty guards, everything logged in the `influencer_orders` table.
 
 ## Shopify app setup (one-time)

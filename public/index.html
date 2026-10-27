@@ -22,7 +22,7 @@
   <header>
     <div>
       <h1>Influencer Orders</h1>
-      <span class="muted">100% discount &middot; tagged <b>INFLUENCER</b> &middot; created live on Shopify</span>
+      <span class="muted">100% discount titled <b>INFLUENCER</b> &middot; created live on Shopify</span>
     </div>
     <nav>
       <button class="tab active" data-tab="new">New orders</button>
@@ -36,8 +36,16 @@
       <p class="hint">
         One row = one order. Paste product links <b>comma separated</b> and the matching sizes in the same order
         (e.g. links <code>…/products/a, …/products/b</code> &rarr; sizes <code>M, L</code>). Add <code>*2</code> for quantity 2 (e.g. <code>M*2</code>).
-        Click <b>Check availability</b>; <b>Create order</b> unlocks only when every item is in stock.
+        You can also <b>upload an Excel / CSV file</b> to fill the rows (use <b>Download template</b>). Uploading never creates orders: review each row, click <b>Check availability</b>, then <b>Create order</b> (unlocks only when every item is in stock).
       </p>
+      <div class="toolbar">
+        <label class="btn primary" for="xlsFile">Upload Excel / CSV</label>
+        <input id="xlsFile" type="file" accept=".xlsx,.xls,.csv" hidden>
+        <button class="btn" id="tplBtn" type="button">Download template</button>
+        <button class="btn" id="checkAll" type="button">Check availability for all rows</button>
+        <button class="btn ghost" id="clearRows" type="button">Clear uncreated rows</button>
+        <span class="muted" id="uploadMsg"></span>
+      </div>
       <div class="gridwrap">
         <table id="grid">
           <thead>
@@ -71,6 +79,7 @@
   </main>
 </div>
 
+<script src="vendor/xlsx.full.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
