@@ -19,6 +19,18 @@ Internal portal to create **100% discounted "INFLUENCER" orders** on Shopify (li
 - **Uploading never creates orders.** It only fills rows. Problems (bad phone, 6-digit pin code, email, unknown state) show as yellow tags and block that row's Create button. Use **Check availability for all rows**, review, then click **Create order** on each row.
 - The Excel reader (SheetJS 0.20.3, Apache-2.0) is bundled in `public/vendor/`, so nothing is loaded from the internet and the file is read in the browser only.
 
+### Cancelling an order
+- In **Order history & tracking**, each created order has a **Cancel order** button (hidden once delivered).
+- **Rule:** an order can be cancelled only while Shopify shows the tag **`ON_HOLD_ORDER_CP`** on it. The server checks the tag **live in Shopify at the moment of the click** (not from cached data), so the rule cannot be bypassed from the browser. Orders without the tag, or already shipped, are refused with a clear message. Orders that currently have the tag show an "On hold (can cancel)" label (updated by the 30-minute sync).
+- On success the order is cancelled in Shopify (the customer is **not** emailed; an internal note records who cancelled it) and the portal status changes to Cancelled. Cancellation is asynchronous in Shopify: if it is not confirmed within about 8 seconds, click Refresh a minute later.
+- Settings (`.env`): `CANCEL_REQUIRED_TAG` (default `ON_HOLD_ORDER_CP`) and `CANCEL_RESTOCK` (default `false`, i.e. stock is **not** added back in Shopify because Unicommerce owns inventory; set `true` if you want Shopify to restock on cancel).
+- The new database columns are added automatically when the server starts (`npm run db:init` also works).
+
+### Times (IST)
+- Every date/time in the portal is shown in **Indian Standard Time (IST)**, labelled "IST", regardless of the time zone of the viewer's PC. Hover over any time to see the raw UTC value received from Shopify/the database.
+- The delivered time comes from the fulfilment record in Shopify (as pushed by the courier/Unicommerce integration). If it differs from what the courier shows, the difference is in the source value (compare with the hover tooltip), not in the portal's conversion.
+- The server process (`TZ=Asia/Kolkata` in `ecosystem.config.js`) and its database connection also run in IST. Stored timestamps are absolute (`TIMESTAMPTZ`), so nothing shifts.
+
 Safety built in: shared-password login (signed cookie), idempotency key per row (double-click/retry can never create 2 orders), resume of half-created drafts, max items/qty guards, everything logged in the `influencer_orders` table.
 
 ## Shopify app setup (one-time)

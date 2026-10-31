@@ -28,7 +28,15 @@ async function api(path, opts = {}) {
   return j;
 }
 
-const fmtDate = (d) => (d ? new Date(d).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
+// All times are shown in Indian Standard Time (IST) whatever the viewer's PC timezone is.
+// The raw time from Shopify/database (UTC) is available as a hover tooltip.
+const fmtDate = (d) => {
+  if (!d) return '';
+  const t = new Date(d); if (isNaN(t)) return '';
+  return t.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }) + ' IST';
+};
+const utcTitle = (d) => { const t = d ? new Date(d) : null; return t && !isNaN(t) ? 'UTC: ' + t.toISOString().replace('T', ' ').slice(0, 19) : ''; };
+const tm = (d) => (d ? `<span title="${esc(utcTitle(d))}">${esc(fmtDate(d))}</span>` : '');
 const label = (s) => String(s || '').replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 function statusPill(s) {
   const cls = s === 'DELIVERED' ? 'ok' : (s === 'CANCELLED' || s === 'FAILED') ? 'bad' : (s === 'UNFULFILLED' || s === 'PENDING') ? 'neutral' : 'warn';
@@ -175,7 +183,7 @@ function paint(r) {
 
   // order outputs
   const o = r.order;
-  r.els.date.textContent = o ? fmtDate(o.orderDate) : '';
+  r.els.date.textContent = o ? fmtDate(o.orderDate) : ''; r.els.date.title = o ? utcTitle(o.orderDate) : '';
   r.els.num.innerHTML = o ? `<b>${esc(o.orderName)}</b><div>${statusPill(o.deliveryStatus)}</div>` : '';
   r.els.trk.innerHTML = o ? trackingHtml(o.tracking) : '';
 }
@@ -319,15 +327,15 @@ async function loadHistory() {
   }
   $('#histBody').innerHTML = history.map((h) => `<tr>
     <td><b>${esc(h.orderName || '—')}</b></td>
-    <td>${esc(fmtDate(h.orderDate || h.createdAt))}</td>
+    <td>${tm(h.orderDate || h.createdAt)}</td>
     <td>${esc(h.customer)}<div class="muted">${esc(h.phone)}</div></td>
     <td>${esc(h.city)}</td>
     <td>${h.items.map((i) => `<div>${esc(i.title || '')} ${i.size ? '(' + esc(i.size) + ')' : ''}${i.qty > 1 ? ' ×' + i.qty : ''}</div>`).join('')}</td>
     <td>${statusPill(h.status)}${h.error ? `<div class="err">${esc(h.error)}</div>` : ''}</td>
-    <td>${h.status === 'CREATED' || h.status === 'CANCELLED' ? statusPill(h.deliveryStatus) : ''}${h.deliveredAt ? `<div class="muted">${esc(fmtDate(h.deliveredAt))}</div>` : ''}</td>
+    <td>${h.status === 'CREATED' || h.status === 'CANCELLED' ? statusPill(h.deliveryStatus) : ''}${h.deliveredAt ? `<div class="muted">${tm(h.deliveredAt)}</div>` : ''}</td>
     <td>${h.status === 'CREATED' ? trackingHtml(h.tracking) : ''}</td>
-    <td class="muted">${esc(fmtDate(h.lastSyncedAt))}</td>
-    <td>${h.status === 'CREATED' ? `<button class="btn" data-refresh="${h.id}">Refresh</button> <button class="btn" data-cancel="${h.id}" data-name="${esc(h.orderName)}" title="Allowed only when the order has the tag ON_HOLD_ORDER_CP in Shopify">Cancel order</button>` : ''}${h.onHold && h.status === 'CREATED' ? '<div><span class="pill warn">On hold (can cancel)</span></div>' : ''}</td>
+    <td class="muted">${tm(h.lastSyncedAt)}</td>
+    <td>${h.status === 'CREATED' ? `<button class="btn" data-refresh="${h.id}">Refresh</button>${h.deliveryStatus !== 'DELIVERED' ? ` <button class="btn" data-cancel="${h.id}" data-name="${esc(h.orderName)}" title="Allowed only when the order has the tag ON_HOLD_ORDER_CP in Shopify">Cancel order</button>` : ''}` : ''}${h.onHold && h.status === 'CREATED' ? '<div><span class="pill warn">On hold (can cancel)</span></div>' : ''}</td>
   </tr>`).join('') || '<tr><td colspan="10" class="muted" style="padding:16px">No orders yet.</td></tr>';
 }
 $('#histBody').addEventListener('click', async (e) => {

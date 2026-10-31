@@ -14,5 +14,7 @@ const pool = new Pool({
   connectionTimeoutMillis: 10000,
 });
 pool.on('error', (e) => console.error('[db] idle client error', e.message));
+// Show/format database times in IST for this app's connections (stored values are absolute TIMESTAMPTZ, so nothing shifts)
+pool.on('connect', (client) => client.query("SET TIME ZONE 'Asia/Kolkata'").catch(() => {}));
 
 module.exports = { pool };
