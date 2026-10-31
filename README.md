@@ -12,6 +12,11 @@ Internal portal to create **100% discounted "INFLUENCER" orders** on Shopify (li
    - `draftOrderComplete` -> real order (e.g. `#12345`) appears in Shopify and flows to Unicommerce through your existing Shopify integration
 4. Order No., Order Date and tracking links appear in the same row and in the **Order history** tab. A background job (every 30 min, set `TRACKING_SYNC_MINUTES`) reads Shopify fulfilments and updates **delivery status** until `Delivered`.
 
+### Zero / low stock
+- By default (`ALLOW_OUT_OF_STOCK=true`) an order can be created **even when Shopify stock is 0**. The check shows an amber "Low / no stock" warning instead of blocking, and Create stays enabled. The product link and size must still be found on Shopify (and the product must be live).
+- Set `ALLOW_OUT_OF_STOCK=false` in `.env` to block out-of-stock items again.
+- Note: such orders will oversell in Shopify and reach Unicommerce/warehouse with no stock, so the warehouse should know to source or substitute them.
+
 ### Excel / CSV upload
 - **Upload Excel / CSV** fills the grid from a file (.xlsx, .xls or .csv, max 100 rows). **Download template** gives the exact headings: Name, Address, City, State, Pin code, Phone Number, Email ID, Products (comma separated links), Size.
 - Headings are matched loosely (e.g. "Mobile", "Pin", "Products (Coma seperated)"), and unrelated columns such as Order Date / Order Number / Tracking link are ignored, so your existing sheet layout can be uploaded as is.

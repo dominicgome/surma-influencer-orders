@@ -40,6 +40,7 @@ const cfg = {
     syncMinutes: num(process.env.TRACKING_SYNC_MINUTES, 30),
     // An order may only be cancelled from the portal while Shopify shows this tag on it
     cancelTag: (process.env.CANCEL_REQUIRED_TAG || 'ON_HOLD_ORDER_CP').trim(),
+    allowZeroStock: process.env.ALLOW_OUT_OF_STOCK === undefined ? true : bool(process.env.ALLOW_OUT_OF_STOCK), // default true: orders may be created even when stock is 0
     cancelRestock: bool(process.env.CANCEL_RESTOCK), // default false: Unicommerce owns stock
   },
 };

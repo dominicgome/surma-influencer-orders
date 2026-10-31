@@ -162,7 +162,7 @@ function paint(r) {
   r.els.checkBtn.textContent = r.busy === 'check' ? 'Checking…' : 'Check availability';
   r.els.createBtn.disabled = locked || r.busy || !(fresh && complete(r));
   r.els.createBtn.textContent = r.busy === 'create' ? 'Creating…' : locked ? 'Created ✓' : 'Create order';
-  r.els.createBtn.title = !fresh ? 'Run "Check availability" first (all items must be in stock)' : complete(r) ? '' : issues(r).join('; ');
+  r.els.createBtn.title = !fresh ? 'Run "Check availability" first (every product link and size must be found on Shopify)' : complete(r) ? '' : issues(r).join('; ');
 
   // detail line
   let html = '';
@@ -173,9 +173,9 @@ function paint(r) {
     const stale = r.snapshot !== snapshotOf(r);
     html += (stale ? '<div class="muted">Products/sizes changed - re-run the check.</div>' : '') +
       r.check.items.map((i) => `<div class="item">
-        <span class="pill ${i.ok ? 'ok' : 'bad'}">${i.ok ? 'Available' : 'Not available'}</span>
+        <span class="pill ${i.ok ? (i.lowStock ? 'warn' : 'ok') : 'bad'}">${i.ok ? (i.lowStock ? 'Low / no stock' : 'Available') : 'Not available'}</span>
         <span><b>${esc(i.title || i.url)}</b>${i.size ? ' &middot; ' + esc(i.size) : ''}${i.qty > 1 ? ' &times;' + i.qty : ''}
-        ${i.ok ? '<span class="muted"> &middot; ' + i.available + ' in stock' + (i.sku ? ' &middot; ' + esc(i.sku) : '') + '</span>' : '<span class="err"> ' + esc(i.reason || '') + '</span>'}</span>
+        ${i.ok ? '<span class="muted"> &middot; ' + i.available + ' in stock' + (i.sku ? ' &middot; ' + esc(i.sku) : '') + '</span>' + (i.lowStock ? '<span class="err"> ' + esc(i.reason || '') + '</span>' : '') : '<span class="err"> ' + esc(i.reason || '') + '</span>'}</span>
       </div>`).join('');
   }
   r.els.detail.innerHTML = html;

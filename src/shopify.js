@@ -134,7 +134,11 @@ async function checkItems(items) {
   for (const r of out) {
     if (!r.variantId) continue;
     if (r.available >= demand[r.variantId]) r.ok = true;
-    else r.reason = r.available <= 0 ? 'Out of stock' : `Only ${r.available} in stock (need ${demand[r.variantId]})`;
+    else {
+      const msg = r.available <= 0 ? 'Out of stock' : `Only ${r.available} in stock (need ${demand[r.variantId]})`;
+      if (cfg.rules.allowZeroStock) { r.ok = true; r.lowStock = true; r.reason = msg + ' - order will still be created'; } // warning only
+      else r.reason = msg;
+    }
   }
   return { ok: out.length > 0 && out.every((r) => r.ok), items: out };
 }
